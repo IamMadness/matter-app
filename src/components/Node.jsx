@@ -1,10 +1,13 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import React from 'react'
 import { motion } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Plus, Trash2, Pencil, Check } from 'lucide-react'
 import { updateNode } from '../db/store'
+import useLinkAutocomplete from '../hooks/useLinkAutocomplete.jsx'
 import './Node.css'
+import './LinkAutocomplete.css'
 
 /**
  * Format a Date (or timestamp number) as "Mar 11 · 09:12".
@@ -19,53 +22,91 @@ function formatTimestamp(ts) {
 }
 
 /**
- * Custom markdown components for dark-theme rendering.
+ * Process React children to replace [[Title]] patterns with styled chips.
  */
-const mdComponents = {
-  h1: (props) => <h1 className="text-lg font-bold text-white/90 mb-1" {...props} />,
-  h2: (props) => <h2 className="text-base font-semibold text-white/85 mb-1" {...props} />,
-  h3: (props) => <h3 className="text-sm font-semibold text-white/80 mb-1" {...props} />,
-  p: (props) => <p className="text-sm text-white/70 leading-relaxed mb-2 last:mb-0" {...props} />,
-  strong: (props) => <strong className="text-white/90 font-semibold" {...props} />,
-  em: (props) => <em className="text-white/60 italic" {...props} />,
-  ul: (props) => <ul className="list-disc list-inside text-sm text-white/70 mb-2 space-y-0.5" {...props} />,
-  ol: (props) => <ol className="list-decimal list-inside text-sm text-white/70 mb-2 space-y-0.5" {...props} />,
-  li: (props) => <li className="text-sm text-white/70" {...props} />,
-  a: (props) => <a className="text-blue-400 underline underline-offset-2 hover:text-blue-300" {...props} />,
-  blockquote: (props) => (
-    <blockquote
-      className="border-l-2 border-white/20 pl-3 my-2 text-sm text-white/50 italic"
-      {...props}
-    />
-  ),
-  code: ({ className, children, ...props }) => {
-    const isInline = !className && typeof children === 'string' && !children.includes('\n')
-    if (isInline) {
+const WIKI_RE = /(\[\[.+?\]\])/
+
+function injectWikiLinks(children, onNavigate) {
+  return React.Children.map(children, (child) => {
+    if (typeof child !== 'string') return child
+    const parts = child.split(WIKI_RE)
+    if (parts.length === 1) return child
+    return parts.map((part, i) => {
+      const m = part.match(/^\[\[(.+?)\]\]$/)
+      if (m) {
+        return (
+          <span
+            key={i}
+            className="wiki-link-chip"
+            role="link"
+            onClick={(e) => {
+              e.stopPropagation()
+              onNavigate?.(m[1])
+            }}
+          >
+            {m[1]}
+          </span>
+        )
+      }
+      return part
+    })
+  })
+}
+
+/**
+ * Build markdown component overrides, capturing onNavigate for wiki-link chips.
+ */
+function buildMdComponents(onNavigate) {
+  const wl = (Tag, cls) => ({ children, ...props }) => (
+    <Tag className={cls} {...props}>{injectWikiLinks(children, onNavigate)}</Tag>
+  )
+
+  return {
+    h1: wl('h1', 'text-lg font-bold text-white/90 mb-1'),
+    h2: wl('h2', 'text-base font-semibold text-white/85 mb-1'),
+    h3: wl('h3', 'text-sm font-semibold text-white/80 mb-1'),
+    p: wl('p', 'text-sm text-white/70 leading-relaxed mb-2 last:mb-0'),
+    strong: wl('strong', 'text-white/90 font-semibold'),
+    em: wl('em', 'text-white/60 italic'),
+    ul: (props) => <ul className="list-disc list-inside text-sm text-white/70 mb-2 space-y-0.5" {...props} />,
+    ol: (props) => <ol className="list-decimal list-inside text-sm text-white/70 mb-2 space-y-0.5" {...props} />,
+    li: wl('li', 'text-sm text-white/70'),
+    a: (props) => <a className="text-blue-400 underline underline-offset-2 hover:text-blue-300" {...props} />,
+    blockquote: (props) => (
+      <blockquote
+        className="border-l-2 border-white/20 pl-3 my-2 text-sm text-white/50 italic"
+        {...props}
+      />
+    ),
+    code: ({ className, children, ...props }) => {
+      const isInline = !className && typeof children === 'string' && !children.includes('\n')
+      if (isInline) {
+        return (
+          <code
+            className="bg-white/10 text-pink-300 text-xs px-1.5 py-0.5 rounded font-mono"
+            {...props}
+          >
+            {children}
+          </code>
+        )
+      }
       return (
-        <code
-          className="bg-white/10 text-pink-300 text-xs px-1.5 py-0.5 rounded font-mono"
-          {...props}
-        >
-          {children}
-        </code>
+        <pre className="bg-black/40 rounded-lg p-3 my-2 overflow-x-auto">
+          <code className="text-xs text-green-300 font-mono" {...props}>
+            {children}
+          </code>
+        </pre>
       )
-    }
-    return (
-      <pre className="bg-black/40 rounded-lg p-3 my-2 overflow-x-auto">
-        <code className="text-xs text-green-300 font-mono" {...props}>
-          {children}
-        </code>
-      </pre>
-    )
-  },
-  hr: () => <hr className="border-white/10 my-3" />,
-  table: (props) => (
-    <div className="overflow-x-auto my-2">
-      <table className="text-xs text-white/70 border-collapse w-full" {...props} />
-    </div>
-  ),
-  th: (props) => <th className="border border-white/10 px-2 py-1 text-left text-white/80 font-semibold" {...props} />,
-  td: (props) => <td className="border border-white/10 px-2 py-1" {...props} />,
+    },
+    hr: () => <hr className="border-white/10 my-3" />,
+    table: (props) => (
+      <div className="overflow-x-auto my-2">
+        <table className="text-xs text-white/70 border-collapse w-full" {...props} />
+      </div>
+    ),
+    th: (props) => <th className="border border-white/10 px-2 py-1 text-left text-white/80 font-semibold" {...props} />,
+    td: (props) => <td className="border border-white/10 px-2 py-1" {...props} />,
+  }
 }
 
 /**
@@ -83,6 +124,7 @@ const mdComponents = {
  *   onSelect: Function,
  *   onAddChild: Function,
  *   onDelete: Function,
+ *   onNavigate: Function,
  * }}
  */
 export default function Node({
@@ -94,12 +136,24 @@ export default function Node({
   onSelect,
   onAddChild,
   onDelete,
+  onNavigate,
 }) {
   const [hovered, setHovered] = useState(false)
   const [editing, setEditing] = useState(!node.content) // auto-edit empty nodes
   const [editContent, setEditContent] = useState(node.content || '')
   const [editTags, setEditTags] = useState((node.tags ?? []).join(', '))
   const textareaRef = useRef(null)
+
+  // Memoize markdown components with wiki-link chip support
+  const mdComponents = useMemo(() => buildMdComponents(onNavigate), [onNavigate])
+
+  // Link autocomplete hook
+  const { handleKeyDown: acKeyDown, dropdown: acDropdown } = useLinkAutocomplete({
+    textareaRef,
+    value: editContent,
+    onChange: setEditContent,
+    nodeId: node.id,
+  })
 
   // Focus textarea when entering edit mode
   useEffect(() => {
@@ -197,6 +251,8 @@ export default function Node({
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
                 onKeyDown={(e) => {
+                  // Let autocomplete consume first
+                  if (acKeyDown(e)) return
                   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                     e.preventDefault()
                     handleSave()
@@ -211,6 +267,7 @@ export default function Node({
                 rows={4}
                 spellCheck={false}
               />
+              {acDropdown}
             </div>
 
             {/* ── 4. Tags Input Row (editing only) ─────────── */}

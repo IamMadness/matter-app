@@ -149,6 +149,7 @@
 
 .node-content.is-editing {
   padding: 0;
+  position: relative;
 }
 
 .node-content textarea {

@@ -1,0 +1,102 @@
+/* ─────────────────────────────────────────────────
+   Link Autocomplete Dropdown  +  [[WikiLink]] Chips
+   ───────────────────────────────────────────────── */
+
+/* ── Dropdown container ──────────────────────────── */
+.link-autocomplete {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(100% + 6px);
+  z-index: 50;
+  max-height: 220px;
+  overflow-y: auto;
+
+  background: #0e0e10;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(24px);
+  padding: 4px;
+  font-family: 'DM Mono', monospace;
+}
+
+.link-autocomplete::-webkit-scrollbar {
+  width: 4px;
+}
+.link-autocomplete::-webkit-scrollbar-track {
+  background: transparent;
+}
+.link-autocomplete::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+/* ── Result row ──────────────────────────────────── */
+.link-ac-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.1s;
+  min-height: 32px;
+}
+
+.link-ac-row:hover,
+.link-ac-row.is-active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* ── Colored dot ─────────────────────────────────── */
+.link-ac-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+/* ── Title ───────────────────────────────────────── */
+.link-ac-title {
+  flex: 1;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Matter name ─────────────────────────────────── */
+.link-ac-matter {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── [[WikiLink]] chips in view mode ─────────────── */
+.wiki-link-chip {
+  display: inline;
+  color: #67e8f9;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.12s, text-decoration-color 0.12s;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(103, 232, 249, 0.3);
+}
+
+.wiki-link-chip:hover {
+  color: #a5f3fc;
+  text-decoration-color: rgba(165, 243, 252, 0.6);
+}
+
+/* ── Autocomplete wrapper (relative anchor) ──────── */
+.ac-wrapper {
+  position: relative;
+}

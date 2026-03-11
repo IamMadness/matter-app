@@ -5,14 +5,9 @@ export const db = new Dexie('MattersDB')
 
 // ── Schema versions ─────────────────────────────────────────────
 //
-// v1 — original schema (may exist in user browsers).
-// v2 — same tables, no structural change, but bumped to force
-//       Dexie to re-validate the schema and clear any stale
-//       version locks from prior dev iterations.
-//
-// IMPORTANT: Dexie silently fails if the schema definition
-// changes *within* the same version number. Always bump the
-// version when indexes change.
+// v1 — original schema.
+// v2 — version bump to re-validate schema.
+// v3 — added `links` table for cross-matter linking.
 
 db.version(1).stores({
   matters: '++id, title, createdAt',
@@ -21,29 +16,26 @@ db.version(1).stores({
 })
 
 db.version(2).stores({
-  // matters: unchanged
   matters: '++id, title, createdAt',
-  // nodes: same indexed fields — isBranch/updatedAt are stored
-  //        but not indexed (no need to query by them directly)
   nodes: '++id, matterId, *tags, order, createdAt',
-  // edges: unchanged
   edges: '++id, sourceId, targetId, [sourceId+targetId]',
 }).upgrade((_tx) => {
-  // No data migration needed — schema indexes are identical.
-  // This upgrade block exists so Dexie acknowledges the version
-  // bump and doesn't skip the open handshake.
+  // No data migration needed.
+})
+
+db.version(3).stores({
+  matters: '++id, title, createdAt',
+  nodes: '++id, matterId, *tags, order, createdAt',
+  edges: '++id, sourceId, targetId, [sourceId+targetId]',
+  // links: cross-matter node references
+  //   sourceNodeId / targetNodeId — indexed for backlink/outlink queries
+  //   sourceMatterId / targetMatterId — stored (not indexed) for JOINs
+  links: '++id, sourceNodeId, targetNodeId',
+}).upgrade((_tx) => {
+  // No migration — new table starts empty.
 })
 
 // ── Eagerly open & surface errors ───────────────────────────────
-//
-// Without this, Dexie auto-opens lazily on first query. If
-// a VersionError or QuotaExceededError occurs, it surfaces
-// inside a useLiveQuery where it's silently swallowed
-// (the query just returns `undefined` forever and isLoading
-// never flips to false → the UI appears empty / "data lost").
-//
-// By opening eagerly we crash-fast with a visible console error.
-
 db.open().catch((err) => {
   console.error(
     '[MattersDB] Failed to open IndexedDB. ' +
@@ -71,25 +63,24 @@ export async function createMatter({ title, color = '#6366f1', icon = 'brain' })
 }
 
 /**
- * Delete a matter and all its nodes + edges.
+ * Delete a matter and all its nodes + edges + links.
  *
  * @param {number} matterId
  */
 export async function deleteMatter(matterId) {
-  await db.transaction('rw', db.matters, db.nodes, db.edges, async () => {
+  await db.transaction('rw', db.matters, db.nodes, db.edges, db.links, async () => {
     const nodes = await db.nodes.where('matterId').equals(matterId).toArray()
     const nodeIds = nodes.map((n) => n.id)
 
-    // Delete edges that reference any of these nodes
     if (nodeIds.length > 0) {
       await db.edges.where('sourceId').anyOf(nodeIds).delete()
       await db.edges.where('targetId').anyOf(nodeIds).delete()
+      // Clean up cross-matter links referencing these nodes
+      await db.links.where('sourceNodeId').anyOf(nodeIds).delete()
+      await db.links.where('targetNodeId').anyOf(nodeIds).delete()
     }
 
-    // Delete nodes
     await db.nodes.where('matterId').equals(matterId).delete()
-
-    // Delete the matter itself
     await db.matters.delete(matterId)
   })
 }
@@ -131,7 +122,6 @@ export async function createNode({
       updatedAt: now,
     })
 
-    // Create parent → child edge if this node has a parent
     if (parentId != null) {
       await db.edges.add({
         sourceId: parentId,
@@ -148,6 +138,7 @@ export async function createNode({
 
 /**
  * Update a node's content/tags.
+ * Automatically syncs [[WikiLink]] cross-matter links after saving.
  *
  * @param {number} nodeId
  * @param {{ content?: string, tags?: string[], isBranch?: boolean }} changes
@@ -157,17 +148,24 @@ export async function updateNode(nodeId, changes) {
     ...changes,
     updatedAt: new Date(),
   })
+
+  // If content was updated, sync cross-matter links from [[...]] tokens
+  if (changes.content != null) {
+    const node = await db.nodes.get(nodeId)
+    if (node) {
+      await parseAndSyncLinks(nodeId, node.matterId, changes.content)
+    }
+  }
 }
 
 /**
- * Delete a node and any edges that reference it.
- * Also cleans up orphaned subtrees (cascading delete).
+ * Delete a node, its edges, its cross-matter links,
+ * and cascade-delete orphaned subtrees.
  *
  * @param {number} nodeId
  */
 export async function deleteNode(nodeId) {
-  await db.transaction('rw', db.nodes, db.edges, async () => {
-    // Find all descendants via BFS so we cascade-delete the subtree
+  await db.transaction('rw', db.nodes, db.edges, db.links, async () => {
     const toDelete = [nodeId]
     const queue = [nodeId]
 
@@ -180,20 +178,172 @@ export async function deleteNode(nodeId) {
       }
     }
 
-    // Remove all edges involving these nodes
     await db.edges.where('sourceId').anyOf(toDelete).delete()
     await db.edges.where('targetId').anyOf(toDelete).delete()
 
-    // Remove the nodes themselves
+    // Clean up cross-matter links for every deleted node
+    await db.links.where('sourceNodeId').anyOf(toDelete).delete()
+    await db.links.where('targetNodeId').anyOf(toDelete).delete()
+
     await db.nodes.bulkDelete(toDelete)
   })
+}
+
+// ── Cross-Matter Links ──────────────────────────────────────────
+
+/**
+ * Create a cross-matter link between two nodes.
+ * De-duplicates: if the exact sourceNodeId→targetNodeId link
+ * already exists, returns the existing one instead.
+ *
+ * @param {number} sourceNodeId
+ * @param {number} targetNodeId
+ * @param {number} sourceMatterId
+ * @param {number} targetMatterId
+ * @returns {Promise<Object>} the link object (new or existing)
+ */
+export async function createLink(sourceNodeId, targetNodeId, sourceMatterId, targetMatterId) {
+  // Check for existing duplicate
+  const existing = await db.links
+    .where('sourceNodeId')
+    .equals(sourceNodeId)
+    .filter((l) => l.targetNodeId === targetNodeId)
+    .first()
+
+  if (existing) return existing
+
+  const id = await db.links.add({
+    sourceNodeId,
+    targetNodeId,
+    sourceMatterId,
+    targetMatterId,
+    createdAt: new Date(),
+  })
+
+  return db.links.get(id)
+}
+
+/**
+ * Delete ALL cross-matter links where the given node is
+ * either the source or target.
+ *
+ * @param {number} nodeId
+ */
+export async function deleteLinksForNode(nodeId) {
+  await db.links.where('sourceNodeId').equals(nodeId).delete()
+  await db.links.where('targetNodeId').equals(nodeId).delete()
+}
+
+/**
+ * Get all backlinks pointing TO a node.
+ * Returns enriched objects with the full source node and its matter.
+ *
+ * @param {number} nodeId
+ * @returns {Promise<Array<{ link: Object, sourceNode: Object, sourceMatter: Object }>>}
+ */
+export async function getBacklinks(nodeId) {
+  const links = await db.links.where('targetNodeId').equals(nodeId).toArray()
+  if (links.length === 0) return []
+
+  const results = []
+  for (const link of links) {
+    const sourceNode = await db.nodes.get(link.sourceNodeId)
+    if (!sourceNode) continue // orphaned link — skip
+    const sourceMatter = await db.matters.get(sourceNode.matterId)
+    results.push({ link, sourceNode, sourceMatter: sourceMatter ?? null })
+  }
+  return results
+}
+
+/**
+ * Get all outgoing links FROM a node.
+ * Returns enriched objects with the full target node and its matter.
+ *
+ * @param {number} nodeId
+ * @returns {Promise<Array<{ link: Object, targetNode: Object, targetMatter: Object }>>}
+ */
+export async function getOutlinks(nodeId) {
+  const links = await db.links.where('sourceNodeId').equals(nodeId).toArray()
+  if (links.length === 0) return []
+
+  const results = []
+  for (const link of links) {
+    const targetNode = await db.nodes.get(link.targetNodeId)
+    if (!targetNode) continue // orphaned link — skip
+    const targetMatter = await db.matters.get(targetNode.matterId)
+    results.push({ link, targetNode, targetMatter: targetMatter ?? null })
+  }
+  return results
+}
+
+/**
+ * Parse [[WikiLink]] tokens from node content and sync the
+ * cross-matter links table to match.
+ *
+ * - Adds links for new [[Title]] references found in content.
+ * - Removes stale links whose [[Title]] was deleted from content.
+ *
+ * Match logic: for each [[Title]], find the first node (across
+ * all matters) whose content starts with or includes that title
+ * within its first 60 characters (case-insensitive).
+ *
+ * @param {number} nodeId     — the node whose content was edited
+ * @param {number} matterId   — the matter this node belongs to
+ * @param {string} content    — the raw markdown content
+ */
+export async function parseAndSyncLinks(nodeId, matterId, content) {
+  if (!content) {
+    // Content cleared — remove all outgoing links from this node
+    await db.links.where('sourceNodeId').equals(nodeId).delete()
+    return
+  }
+
+  // 1. Extract all [[...]] tokens
+  const regex = /\[\[(.+?)\]\]/g
+  const titles = []
+  let match
+  while ((match = regex.exec(content)) !== null) {
+    titles.push(match[1].trim())
+  }
+
+  // 2. Resolve each title to a target node
+  const allNodes = await db.nodes.toArray()
+  const resolvedTargetIds = new Set()
+
+  for (const title of titles) {
+    const lower = title.toLowerCase()
+    // Find first node whose first 60 chars of content include the title
+    const target = allNodes.find((n) => {
+      if (n.id === nodeId) return false // don't self-link
+      const snippet = (n.content || '').substring(0, 60).toLowerCase()
+      return snippet.includes(lower)
+    })
+    if (target) {
+      resolvedTargetIds.add(target.id)
+      // Create link if it doesn't exist yet
+      await createLink(nodeId, target.id, matterId, target.matterId)
+    }
+  }
+
+  // 3. Delete stale links (in DB but no longer in content)
+  const existingLinks = await db.links
+    .where('sourceNodeId')
+    .equals(nodeId)
+    .toArray()
+
+  const staleIds = existingLinks
+    .filter((l) => !resolvedTargetIds.has(l.targetNodeId))
+    .map((l) => l.id)
+
+  if (staleIds.length > 0) {
+    await db.links.bulkDelete(staleIds)
+  }
 }
 
 // ── Search ──────────────────────────────────────────────────────
 
 /**
  * Full-text search across node content.
- * Uses a case-insensitive substring match.
  *
  * @param {string} query
  * @param {number} [limit=50]
@@ -212,7 +362,6 @@ export async function searchNodes(query, limit = 50) {
 
 /**
  * Find nodes that contain a specific tag.
- * Uses Dexie's multi-entry index on `tags`.
  *
  * @param {string} tag — tag name (without the # prefix)
  * @param {number} [limit=50]
@@ -223,10 +372,7 @@ export async function getNodesByTag(tag, limit = 50) {
 
   const lower = tag.toLowerCase().trim()
 
-  // Multi-entry index allows exact match per tag entry.
-  // For partial match, fall back to manual filter.
   const all = await db.nodes.where('tags').equals(lower).limit(limit).toArray()
-
   if (all.length > 0) return all
 
   // Fallback: partial tag match

@@ -98,7 +98,24 @@ export default function App() {
 
   const handlePaletteNavigate = useCallback((matterId, nodeId) => {
     setActiveMatterId(matterId)
-    // TODO: scroll to nodeId within Thread (thread handles via its own state)
+    // Scroll after React re-renders with the new matter
+    if (nodeId) {
+      setTimeout(() => {
+        const el = document.querySelector(`[data-node-id="${nodeId}"]`)
+        el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+      }, 300)
+    }
+  }, [])
+
+  const handleNavigate = useCallback((matterId, nodeId) => {
+    if (matterId != null) setActiveMatterId(matterId)
+    if (nodeId != null) {
+      // Allow time for the new matter thread to render
+      setTimeout(() => {
+        const el = document.querySelector(`[data-node-id="${nodeId}"]`)
+        el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+      }, 300)
+    }
   }, [])
 
   const handleJumpTo = useCallback((nodeId) => {
@@ -140,6 +157,7 @@ export default function App() {
           <Thread
             matterId={activeMatter.id}
             matterColor={activeMatter.color || '#6366f1'}
+            onNavigate={handleNavigate}
           />
         ) : !isLoading && matters.length === 0 ? (
           /* ── Welcome empty state ─────────────────────── */

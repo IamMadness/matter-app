@@ -6,6 +6,7 @@ import { useKeyboard } from '../hooks/useKeyboard'
 import { createNode, deleteNode } from '../db/store'
 import Node from './Node'
 import BranchLine from './BranchLine'
+import BacklinksPanel from './BacklinksPanel'
 
 /**
  * Thread — Main horizontal canvas.
@@ -14,9 +15,9 @@ import BranchLine from './BranchLine'
  * Handles focus mode (ancestor/descendant highlighting), branching,
  * keyboard navigation, and BranchLine SVG overlays.
  *
- * @param {{ matterId: number, matterColor: string }}
+ * @param {{ matterId: number, matterColor: string, onNavigate: Function }}
  */
-export default function Thread({ matterId, matterColor }) {
+export default function Thread({ matterId, matterColor, onNavigate }) {
   const { nodes, isLoading } = useActiveThread(matterId)
   const nodeIds = useMemo(() => nodes.map((n) => n.id).filter(Boolean), [nodes])
   const { edges } = useEdges(nodeIds)
@@ -229,6 +230,12 @@ export default function Thread({ matterId, matterColor }) {
             onSelect={handleSelect}
             onAddChild={handleAddChild}
             onDelete={handleDelete}
+            onNavigate={(title) => {
+              // Wiki-link chip clicked — delegate to parent
+              // For now we don't resolve title→node here;
+              // onNavigate in App will handle cross-matter nav
+              onNavigate?.(null, null, title)
+            }}
           />
         </div>
 
@@ -299,6 +306,13 @@ export default function Thread({ matterId, matterColor }) {
           </div>
         </div>
       )}
+
+      {/* Backlinks panel */}
+      <BacklinksPanel
+        nodeId={activeNodeId}
+        onNavigate={(matterId, nodeId) => onNavigate?.(matterId, nodeId)}
+        onClose={() => setActiveNodeId(null)}
+      />
     </div>
   )
 }
