@@ -2,26 +2,31 @@
    Node Card — Matters Design System v2
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── Tag colour presets (picked by hash of tag string) ──────── */
-.tag-v0 { --tag-c: #67e8f9; --tag-bg: rgba(103,232,249,0.10); --tag-bd: rgba(103,232,249,0.24); }
-.tag-v1 { --tag-c: #f0abfc; --tag-bg: rgba(240,171,252,0.10); --tag-bd: rgba(240,171,252,0.24); }
-.tag-v2 { --tag-c: #86efac; --tag-bg: rgba(134,239,172,0.10); --tag-bd: rgba(134,239,172,0.24); }
-.tag-v3 { --tag-c: #fbbf24; --tag-bg: rgba(251,191, 36,0.10); --tag-bd: rgba(251,191, 36,0.24); }
-.tag-v4 { --tag-c: #f472b6; --tag-bg: rgba(244,114,182,0.10); --tag-bd: rgba(244,114,182,0.24); }
+/* ── Tag colours now applied via inline styles (TAG_COLORS) ── */
 
 /* ─── Card Base ──────────────────────────────────────────────── */
 
 .node-card {
   width: var(--node-w);
   flex-shrink: 0;
-  background: linear-gradient(145deg, rgba(22,22,26,0.9), rgba(14,14,17,0.95));
-  border: 1px solid var(--border);
+
+  /* #1 — Visible surface, clearly distinct from page bg (#080809) */
+  background: linear-gradient(145deg, rgba(30,31,38,0.95), rgba(20,21,26,0.98));
+
+  /* #2 — Always-visible border */
+  border: 1px solid rgba(255,255,255,0.12);
   border-radius: var(--r);
   backdrop-filter: blur(24px);
   overflow: hidden;
   cursor: pointer;
   position: relative;
   font-family: var(--font-mono);
+
+  /* #5 — Resting box-shadow for depth */
+  box-shadow:
+    0 4px 24px rgba(0,0,0,0.4),
+    0 1px 0 rgba(255,255,255,0.04) inset;
+
   transition:
     border-color 0.25s,
     box-shadow 0.25s,
@@ -47,41 +52,43 @@
 
 /* ─── States ─────────────────────────────────────────────────── */
 
-/* #5 — Hover lift: translateY(-2px) */
+/* #2 — Hover: brighter border + lift */
 .node-card:hover {
-  border-color: rgba(255,255,255,0.15);
+  border-color: rgba(255,255,255,0.22);
   transform: translateY(-2px);
+  box-shadow:
+    0 6px 32px rgba(0,0,0,0.5),
+    0 1px 0 rgba(255,255,255,0.06) inset;
 }
 
 .node-card:hover::before { opacity: 1; }
 
-/* #5 — Active lift: translateY(-3px) */
+/* #2 — Active / selected: accent border + deep glow */
 .node-card.is-active {
-  border-color: color-mix(in srgb, var(--cc) 38%, transparent);
+  border-color: color-mix(in srgb, var(--cc) 50%, transparent);
   transform: translateY(-3px);
   box-shadow:
-    0 0 0  1px color-mix(in srgb, var(--cc) 12%, transparent),
-    0 4px 24px  color-mix(in srgb, var(--cc) 10%, transparent),
-    0 0  60px  color-mix(in srgb, var(--cc)  6%, transparent),
-    0 12px 48px rgba(0,0,0,0.50);
+    0 0 0  1px color-mix(in srgb, var(--cc) 15%, transparent),
+    0 8px 32px  rgba(0,0,0,0.6),
+    0 0  40px  color-mix(in srgb, var(--cc)  8%, transparent);
 }
 
 .node-card.is-active::before { opacity: 1; }
 
-/* #6 — Focus mode fade: smooth opacity + filter transition */
+/* Focus mode fade */
 .node-card.is-dimmed {
   opacity: 0.2;
   filter: saturate(0.1);
   transform: none !important;
-  /* transitions inherited from base — opacity 0.35s ease, filter 0.35s ease */
 }
 
-/* ─── 1. Top Strip ───────────────────────────────────────────── */
+/* ─── 1. Top Strip — accent color bar ────────────────────────── */
 
 .node-strip {
   height: 3px;
-  background: linear-gradient(90deg, var(--cc), transparent 80%);
-  opacity: 0.7;
+  background: linear-gradient(90deg, var(--cc), transparent 75%);
+  opacity: 0.85;
+  border-radius: var(--r) var(--r) 0 0;
 }
 
 /* ─── 2. Node Head ───────────────────────────────────────────── */
@@ -93,10 +100,11 @@
   padding: 10px 14px 6px;
 }
 
+/* #4 — Index label: visible muted white with accent number */
 .node-head-label {
   font-size: 9px;
   letter-spacing: 0.14em;
-  color: var(--txt-3);
+  color: rgba(255,255,255,0.3);
   font-family: var(--font-mono);
   text-transform: uppercase;
 }
@@ -140,13 +148,13 @@
   font-family: var(--font-mono);
   letter-spacing: 0.03em;
   line-height: 1.5;
-  color:      var(--tag-c, var(--cc));
-  background: var(--tag-bg, color-mix(in srgb, var(--cc) 8%, transparent));
-  border:     1px solid var(--tag-bd, color-mix(in srgb, var(--cc) 20%, transparent));
+  /* Defaults — overridden by inline styles */
+  color:      var(--cc);
+  background: color-mix(in srgb, var(--cc) 8%, transparent);
+  border:     1px solid color-mix(in srgb, var(--cc) 20%, transparent);
 }
 
 .tag-pill:hover {
-  background: var(--tag-bg, color-mix(in srgb, var(--cc) 15%, transparent));
   filter: brightness(1.15);
 }
 
@@ -156,7 +164,8 @@
   padding: 2px 14px 10px;
   font-size: 12px;
   line-height: 1.65;
-  color: rgba(255,255,255,0.78);
+  /* #4 — Readable content text */
+  color: rgba(255,255,255,0.88);
   font-family: var(--font-mono);
 }
 
@@ -190,7 +199,7 @@
 }
 
 .node-body-placeholder {
-  color: var(--txt-4);
+  color: rgba(255,255,255,0.25);
   font-style: italic;
   font-size: 12px;
 }
@@ -201,12 +210,14 @@
   position: relative;
 }
 
+/* #6 — Textarea contrasts from card surface */
 .node-textarea {
   width: 100%;
-  background: rgba(255,255,255,0.03);
+  background: rgba(0,0,0,0.25);
   border: none;
-  border-top: 1px solid var(--border);
-  color: var(--txt);
+  border-top: 1px solid rgba(255,255,255,0.07);
+  /* #4 — Readable text */
+  color: rgba(255,255,255,0.88);
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.65;
@@ -217,22 +228,25 @@
   box-sizing: border-box;
 }
 
+/* #4 — Visible placeholder */
 .node-textarea::placeholder {
-  color: var(--txt-3);
+  color: rgba(255,255,255,0.25);
 }
 
 /* ─── 5. Tags Edit Row ───────────────────────────────────────── */
 
+/* #6 — Tags input contrasts from card surface */
 .tags-edit-row {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 0 14px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid rgba(255,255,255,0.07);
+  background: rgba(0,0,0,0.25);
 }
 
 .tags-edit-row .te-hash {
-  color: var(--txt-3);
+  color: rgba(255,255,255,0.3);
   font-size: 11px;
   flex-shrink: 0;
   font-family: var(--font-mono);
@@ -242,7 +256,7 @@
   flex: 1;
   background: transparent;
   border: none;
-  color: var(--txt);
+  color: rgba(255,255,255,0.88);
   font-family: var(--font-mono);
   font-size: 11px;
   padding: 8px 0;
@@ -251,7 +265,7 @@
 }
 
 .tags-edit-row input::placeholder {
-  color: var(--txt-3);
+  color: rgba(255,255,255,0.25);
 }
 
 /* ─── 6. Node Foot ───────────────────────────────────────────── */
@@ -261,15 +275,15 @@
   align-items: center;
   justify-content: space-between;
   padding: 7px 14px;
-  background: rgba(0,0,0,0.18);
-  border-top: 1px solid var(--border);
+  background: rgba(0,0,0,0.25);
+  border-top: 1px solid rgba(255,255,255,0.07);
 }
 
-/* Timestamp with glowing dot */
+/* #4 — Timestamp: visible muted white + glowing dot */
 .node-ts {
   font-size: 9px;
   letter-spacing: 0.08em;
-  color: var(--txt-2);
+  color: rgba(255,255,255,0.45);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -303,7 +317,7 @@
   border-radius: 6px;
   border: 1px solid transparent;
   background: transparent;
-  color: var(--txt-3);
+  color: rgba(255,255,255,0.35);
   cursor: pointer;
   transition: color 0.2s, border-color 0.2s, background 0.2s;
 }
@@ -316,13 +330,13 @@
 
 .node-kbd-hint {
   font-size: 9px;
-  color: var(--txt-3);
+  color: rgba(255,255,255,0.35);
   font-family: var(--font-mono);
   letter-spacing: 0.04em;
   margin-right: 4px;
 }
 
-/* #4 — Save button with "✓ Saved" flash state */
+/* #7 — Save button: fully opaque, never dimmed */
 .node-save-btn {
   background: var(--cc);
   color: #080809;
@@ -341,9 +355,68 @@
   transition: box-shadow 0.2s, transform 0.2s;
   min-width: 60px;
   justify-content: center;
+  opacity: 1;
 }
 
 .node-save-btn:hover {
   box-shadow: 0 0 20px color-mix(in srgb, var(--cc) 45%, transparent);
   transform: translateY(-1px);
+}
+
+/* ─── Hover action buttons (+ child, ⑂ fork) ────────────────── */
+
+.node-outer {
+  position: relative;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.node-add-child {
+  position: absolute;
+  right: -18px;
+  top: 50%;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: #080809;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  z-index: 10;
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: auto;
+}
+
+.node-add-child:hover {
+  filter: brightness(1.15);
+}
+
+.node-add-branch {
+  position: absolute;
+  right: -18px;
+  top: calc(50% + 36px);
+  background: transparent;
+  border: 1px solid #B06EF7;
+  color: #B06EF7;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  z-index: 10;
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.node-add-branch:hover {
+  background: rgba(176,110,247,0.12);
+  box-shadow: 0 0 16px rgba(176,110,247,0.3);
 }

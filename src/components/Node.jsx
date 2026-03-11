@@ -21,12 +21,15 @@ function formatTimestamp(ts) {
   return `${month} ${day} · ${h}:${m}`
 }
 
-/** Simple hash → 0..4 for tag colour variant */
-function tagVariant(tag) {
-  let h = 0
-  for (let i = 0; i < tag.length; i++) h = ((h << 5) - h + tag.charCodeAt(i)) | 0
-  return Math.abs(h) % 5
-}
+/* ── Tag pill colours (index-based cycling) ─────────────────── */
+const TAG_COLORS = [
+  { color: '#E8FF47', bg: 'rgba(232,255,71,0.1)',  border: 'rgba(232,255,71,0.25)' },
+  { color: '#00D4FF', bg: 'rgba(0,212,255,0.1)',   border: 'rgba(0,212,255,0.25)' },
+  { color: '#FF4F7B', bg: 'rgba(255,79,123,0.1)',   border: 'rgba(255,79,123,0.25)' },
+  { color: '#B06EF7', bg: 'rgba(176,110,247,0.1)',  border: 'rgba(176,110,247,0.25)' },
+  { color: '#FFAA00', bg: 'rgba(255,170,0,0.1)',    border: 'rgba(255,170,0,0.25)' },
+]
+const getTagColor = (index) => TAG_COLORS[index % TAG_COLORS.length]
 
 /** Replace [[Title]] in React children with styled chips */
 const WIKI_RE = /(\[\[.+?\]\])/
@@ -119,6 +122,8 @@ function buildMdComponents(onNavigate) {
  *   onAddChild: Function,
  *   onDelete: Function,
  *   onNavigate: Function,
+ *   label: string,
+ *   number: string,
  * }}
  */
 export default function Node({
@@ -132,11 +137,15 @@ export default function Node({
   onAddChild,
   onDelete,
   onNavigate,
+  label = 'ROOT',
+  number = '01',
 }) {
   const [editing, setEditing] = useState(!node.content)
   const [editContent, setEditContent] = useState(node.content || '')
-  const [editTags, setEditTags] = useState((node.tags ?? []).join(', '))
+  const [tags, setTags] = useState(node.tags ?? [])
+  const [tagInput, setTagInput] = useState('')
   const [saveFlash, setSaveFlash] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
   const textareaRef = useRef(null)
 
   const mdComponents = useMemo(() => buildMdComponents(onNavigate), [onNavigate])
@@ -158,34 +167,45 @@ export default function Node({
     }
   }, [editing])
 
+  /* ── Tag helpers ────────────────────────────────────────────── */
+  const addTag = useCallback((raw) => {
+    const t = raw.trim().replace(/^#/, '').toLowerCase()
+    if (t && !tags.includes(t)) setTags((prev) => [...prev, t])
+    setTagInput('')
+  }, [tags])
+
+  const removeTag = useCallback((tag) => {
+    setTags((prev) => prev.filter((t) => t !== tag))
+  }, [])
+
   /* ── Save handler with flash feedback (#4) ─────────────────── */
   const handleSave = useCallback(async () => {
-    const tags = editTags
-      .split(',')
-      .map((t) => t.trim().replace(/^#/, '').toLowerCase())
-      .filter(Boolean)
-    await updateNode(node.id, { content: editContent, tags })
+    let finalTags = tags
+    if (tagInput.trim()) {
+      const t = tagInput.trim().replace(/^#/, '').toLowerCase()
+      if (t && !tags.includes(t)) finalTags = [...tags, t]
+      setTagInput('')
+    }
+    await updateNode(node.id, { content: editContent, tags: finalTags })
+    setTags(finalTags)
     setEditing(false)
 
-    // Show "✓ Saved" flash for 1.2 s
     setSaveFlash(true)
     setTimeout(() => setSaveFlash(false), 1200)
-  }, [node.id, editContent, editTags])
+  }, [node.id, editContent, tags, tagInput])
 
   /* ── Enter edit mode ───────────────────────────────────────── */
   const enterEdit = useCallback(() => {
     setEditContent(node.content || '')
-    setEditTags((node.tags ?? []).join(', '))
+    setTags(node.tags ?? [])
+    setTagInput('')
     setEditing(true)
   }, [node.content, node.tags])
 
   /* ── Derived state ─────────────────────────────────────────── */
   const dimmed = !isActive && !isAncestor && !isDescendant
-  const tags = node.tags ?? []
+  const viewTags = editing ? tags : (node.tags ?? [])
   const isBranch = node.isBranch === true
-  const parentId = node.parentId
-  const orderLabel = String(node.order ?? 0).padStart(2, '0')
-  const headPrefix = parentId ? 'CHILD' : 'ROOT'
 
   const cardCls = ['node-card', isActive && 'is-active', dimmed && 'is-dimmed']
     .filter(Boolean)
@@ -196,11 +216,13 @@ export default function Node({
 
   return (
     <motion.div
-      className="relative shrink-0"
+      className="node-outer"
       initial={{ opacity: 0, x: 28, scale: 0.97 }}
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, x: -20 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: entryDelay }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <div
         role="button"
@@ -219,25 +241,83 @@ export default function Node({
         {/* ── 2. Node Head ─────────────────────────────────── */}
         <div className="node-head">
           <span className="node-head-label">
-            {headPrefix} · <span className="head-num">{orderLabel}</span>
+            {label} · <span className="head-num">{number}</span>
           </span>
           {isBranch && <span className="node-fork-badge">⑂ fork</span>}
         </div>
 
         {/* ── 3. Tags Row (view mode only) ─────────────────── */}
-        {!editing && tags.length > 0 && (
+        {!editing && viewTags.length > 0 && (
           <div className="node-tags">
-            {tags.map((tag) => (
-              <span key={tag} className={`tag-pill tag-v${tagVariant(tag)}`}>
-                #{tag}
-              </span>
-            ))}
+            {viewTags.map((tag, i) => {
+              const c = getTagColor(i)
+              return (
+                <span
+                  key={tag}
+                  className="tag-pill"
+                  style={{
+                    background: c.bg,
+                    border: `1px solid ${c.border}`,
+                    color: c.color,
+                  }}
+                >
+                  #{tag}
+                </span>
+              )
+            })}
           </div>
         )}
 
         {/* ── 4 / 4b. Body or Textarea ─────────────────────── */}
         {editing ? (
           <div onClick={(e) => e.stopPropagation()}>
+            {/* ── Tag Pills (edit mode — removable) ────────── */}
+            {tags.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, padding: '8px 14px', minHeight: 32 }}>
+                {tags.map((tag, i) => {
+                  const c = getTagColor(i)
+                  return (
+                    <span
+                      key={tag}
+                      style={{
+                        fontSize: 10, padding: '2px 8px', borderRadius: 20,
+                        background: c.bg, border: `1px solid ${c.border}`,
+                        color: c.color, display: 'flex', alignItems: 'center', gap: 4,
+                        letterSpacing: '0.03em', fontFamily: 'var(--font-mono)',
+                      }}
+                    >
+                      #{tag}
+                      <span
+                        onClick={() => removeTag(tag)}
+                        style={{ cursor: 'pointer', opacity: 0.6, fontSize: 9, marginLeft: 2 }}
+                      >✕</span>
+                    </span>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* ── Tag Input Row ─────────────────────────────── */}
+            <div className="tags-edit-row">
+              <span className="te-hash">#</span>
+              <input
+                type="text"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.key === 'Enter' || e.key === ',') && tagInput.trim()) {
+                    e.preventDefault()
+                    addTag(tagInput)
+                  }
+                  if (e.key === 'Backspace' && !tagInput && tags.length > 0) {
+                    removeTag(tags[tags.length - 1])
+                  }
+                }}
+                placeholder={tags.length ? 'add another…' : 'add tags (enter to confirm)'}
+              />
+            </div>
+
+            {/* ── Textarea ─────────────────────────────────── */}
             <div className="node-textarea-wrap">
               <textarea
                 ref={textareaRef}
@@ -252,7 +332,8 @@ export default function Node({
                   }
                   if (e.key === 'Escape') {
                     setEditContent(node.content || '')
-                    setEditTags((node.tags ?? []).join(', '))
+                    setTags(node.tags ?? [])
+                    setTagInput('')
                     setEditing(false)
                   }
                 }}
@@ -261,17 +342,6 @@ export default function Node({
                 spellCheck={false}
               />
               {acDropdown}
-            </div>
-
-            {/* 5. Tags Edit Row */}
-            <div className="tags-edit-row">
-              <span className="te-hash">#</span>
-              <input
-                type="text"
-                value={editTags}
-                onChange={(e) => setEditTags(e.target.value)}
-                placeholder="add tags, comma-separated"
-              />
             </div>
           </div>
         ) : (
@@ -307,7 +377,6 @@ export default function Node({
                 </button>
               </>
             ) : saveFlash ? (
-              /* #4 — Brief "✓ Saved" flash after saving */
               <span className="node-save-btn" style={{ cursor: 'default' }}>
                 <Check size={10} /> Saved
               </span>
@@ -323,6 +392,29 @@ export default function Node({
           </div>
         </div>
       </div>
+
+      {/* ── Hover affordances: + child, ⑂ fork ──────────── */}
+      <div
+        className="node-add-child"
+        onClick={(e) => { e.stopPropagation(); onAddChild?.(node.id, false) }}
+        style={{
+          opacity: isHovered ? 1 : 0,
+          transform: isHovered ? 'translateY(-50%) scale(1)' : 'translateY(-50%) scale(0.8)',
+          background: matterColor || 'var(--cc)',
+          boxShadow: `0 0 16px ${matterColor || 'var(--cc)'}55`,
+        }}
+        title="Add child node"
+      >+</div>
+
+      <div
+        className="node-add-branch"
+        onClick={(e) => { e.stopPropagation(); onAddChild?.(node.id, true) }}
+        style={{
+          opacity: isHovered ? 1 : 0,
+          transform: isHovered ? 'translateY(0) scale(1)' : 'translateY(0) scale(0.8)',
+        }}
+        title="Fork branch"
+      >⑂ fork</div>
     </motion.div>
   )
 }

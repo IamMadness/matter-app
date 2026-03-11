@@ -14,13 +14,6 @@ import './Thread.css'
  * Renders a matter's nodes as a recursive tree laid out left-to-right,
  * vertically centered in the viewport. Connector elements sit between
  * sibling nodes with a gradient line, arrow-head, and branch mid-dot.
- *
- * @param {{
- *   matterId: number,
- *   matterColor: string,
- *   focusEnabled: boolean,
- *   onNavigate: Function,
- * }}
  */
 export default function Thread({ matterId, matterColor, focusEnabled = true, onNavigate }) {
   const { nodes, isLoading } = useActiveThread(matterId)
@@ -29,6 +22,10 @@ export default function Thread({ matterId, matterColor, focusEnabled = true, onN
 
   const [activeNodeId, setActiveNodeId] = useState(null)
   const containerRef = useRef(null)
+
+  // ── Scroll arrow state ──────────────────────────────────────
+  const [scrollLeft, setScrollLeft] = useState(0)
+  const [canScrollRight, setCanScrollRight] = useState(false)
 
   // ── Build adjacency structures ──────────────────────────────
   const { childrenMap, parentMap, rootIds } = useMemo(() => {
@@ -53,6 +50,29 @@ export default function Thread({ matterId, matterColor, focusEnabled = true, onN
     for (const n of nodes) m[n.id] = n
     return m
   }, [nodes])
+
+  // ── Node number: sort by createdAt, return 1-based padded index ─
+  const nodeNumberMap = useMemo(() => {
+    const sorted = [...nodes].sort((a, b) => {
+      const ta = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt || 0).getTime()
+      const tb = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt || 0).getTime()
+      return ta - tb
+    })
+    const map = {}
+    sorted.forEach((n, i) => {
+      map[n.id] = String(i + 1).padStart(2, '0')
+    })
+    return map
+  }, [nodes])
+
+  // ── Node label helper ───────────────────────────────────────
+  function getNodeLabel(nodeId) {
+    const node = nodeMap[nodeId]
+    if (!node) return 'NODE'
+    if (parentMap[nodeId] == null) return 'ROOT'
+    if (node.isBranch === true) return 'BRANCH'
+    return 'CHILD'
+  }
 
   // ── Focus mode: ancestors & descendants of active node ──────
   const { ancestorIds, descendantIds } = useMemo(() => {
@@ -105,7 +125,13 @@ export default function Thread({ matterId, matterColor, focusEnabled = true, onN
       if (!parent) return
       const siblings = (childrenMap[parentId] || []).map((id) => nodeMap[id]).filter(Boolean)
       const maxOrder = siblings.reduce((m, n) => Math.max(m, n.order ?? 0), parent.order ?? 0)
-      await createNode({ matterId, content: '', tags: [], order: maxOrder + 1, isBranch, parentId })
+      const newId = await createNode({ matterId, content: '', tags: [], order: maxOrder + 1, isBranch, parentId })
+
+      // Scroll new node into view after it renders
+      setTimeout(() => {
+        const ref = nodeRefsMap.current[newId]
+        ref?.current?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+      }, 100)
     },
     [matterId, nodeMap, childrenMap],
   )
@@ -169,6 +195,45 @@ export default function Thread({ matterId, matterColor, focusEnabled = true, onN
     ref?.current?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
   }, [activeNodeId])
 
+  // ── #1 Horizontal wheel scroll ─────────────────────────────
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const onWheel = (e) => {
+      if (Math.abs(e.deltaX) < Math.abs(e.deltaY)) {
+        e.preventDefault()
+        el.scrollLeft += e.deltaY
+      }
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
+
+  // ── #2 Track scroll position for arrow buttons ─────────────
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const update = () => {
+      setScrollLeft(el.scrollLeft)
+      setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 10)
+    }
+    el.addEventListener('scroll', update)
+    update()
+    // Re-check when nodes change
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => {
+      el.removeEventListener('scroll', update)
+      ro.disconnect()
+    }
+  }, [nodes.length])
+
+  // ── #4 Reset scroll on matter change ───────────────────────
+  useEffect(() => {
+    if (containerRef.current) containerRef.current.scrollLeft = 0
+    setActiveNodeId(null)
+  }, [matterId])
+
   // ── Connector element between two horizontally-adjacent nodes
   function Connector({ sourceNodeId }) {
     return (
@@ -204,16 +269,20 @@ export default function Thread({ matterId, matterColor, focusEnabled = true, onN
     const isDescendant = descendantIds.has(nodeId)
     const hasFocus = focusEnabled && activeNodeId != null
 
-    // Capture and increment the running index for stagger delay
     const currentIndex = nodeIndex++
 
+    const label = getNodeLabel(nodeId)
+    const number = nodeNumberMap[nodeId] || '01'
+
     return (
-      <div key={nodeId} className="flex items-center" style={{ gap: 0 }}>
+      <div key={nodeId} className="node-unit">
         {/* Node card */}
-        <div ref={nodeRef} data-node-id={nodeId} className="relative shrink-0">
+        <div ref={nodeRef} data-node-id={nodeId} className="node-wrap">
           <Node
             node={node}
             index={currentIndex}
+            label={label}
+            number={number}
             isActive={isActive}
             isAncestor={hasFocus && isAncestor}
             isDescendant={hasFocus && isDescendant}
@@ -241,7 +310,7 @@ export default function Thread({ matterId, matterColor, focusEnabled = true, onN
                   containerRef={containerRef}
                   matterColor={matterColor}
                 />
-                <div className="flex flex-col gap-6">
+                <div className="branch-group">
                   {children.map((childId) => renderSubtree(childId))}
                 </div>
               </>
@@ -255,7 +324,7 @@ export default function Thread({ matterId, matterColor, focusEnabled = true, onN
   // ── Render ──────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center text-sm" style={{ color: 'var(--txt-4)' }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: 'var(--txt-4)' }}>
         Loading…
       </div>
     )
@@ -263,7 +332,7 @@ export default function Thread({ matterId, matterColor, focusEnabled = true, onN
 
   // ── Flatten rootIds into a linked sequence for connectors ──
   function renderRootSequence() {
-    nodeIndex = 0 // reset stagger counter per render
+    nodeIndex = 0
     const elements = []
     rootIds.forEach((rootId, i) => {
       if (i > 0) {
@@ -272,10 +341,30 @@ export default function Thread({ matterId, matterColor, focusEnabled = true, onN
         )
       }
       elements.push(
-        <div key={rootId}>{renderSubtree(rootId, i === 0)}</div>,
+        <div key={rootId} className="node-unit">{renderSubtree(rootId, i === 0)}</div>,
       )
     })
     return elements
+  }
+
+  /* ── Scroll arrow shared styles ──────────────────────────── */
+  const arrowStyle = {
+    position: 'absolute',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    zIndex: 10,
+    width: 36,
+    height: 36,
+    borderRadius: '50%',
+    background: 'rgba(255,255,255,0.06)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 16,
+    cursor: 'pointer',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'background 0.15s, border-color 0.15s, color 0.15s',
+    backdropFilter: 'blur(8px)',
   }
 
   return (
@@ -285,22 +374,35 @@ export default function Thread({ matterId, matterColor, focusEnabled = true, onN
       style={{ '--matter-color': matterColor || 'var(--cc)' }}
       onClick={handleClearFocus}
     >
+      {/* ── Scroll arrows ──────────────────────────────────── */}
+      <button
+        onClick={() => containerRef.current?.scrollBy({ left: -340, behavior: 'smooth' })}
+        className="thread-scroll-arrow"
+        style={{
+          ...arrowStyle,
+          left: 72,
+          display: scrollLeft > 0 ? 'flex' : 'none',
+        }}
+        aria-label="Scroll left"
+      >‹</button>
+
+      <button
+        onClick={() => containerRef.current?.scrollBy({ left: 340, behavior: 'smooth' })}
+        className="thread-scroll-arrow"
+        style={{
+          ...arrowStyle,
+          right: 16,
+          display: canScrollRight ? 'flex' : 'none',
+        }}
+        aria-label="Scroll right"
+      >›</button>
+
       {/* ── Nodes exist → render track ─────────────────────── */}
       {nodes.length > 0 && (
         <div className="thread-track">
           <AnimatePresence mode="popLayout">
             {renderRootSequence()}
           </AnimatePresence>
-
-          <Connector sourceNodeId={rootIds[rootIds.length - 1]} />
-
-          <button
-            className="thread-add-end"
-            onClick={(e) => { e.stopPropagation(); handleAddAtEnd() }}
-          >
-            <div className="thread-add-circle">+</div>
-            <span className="thread-add-label">new node</span>
-          </button>
         </div>
       )}
 
