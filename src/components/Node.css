@@ -1,0 +1,344 @@
+/* ─── Node Card — Matters Design System ──────────────────────── */
+
+.node-card {
+  --matter-color: #6366f1;
+
+  width: 280px;
+  flex-shrink: 0;
+  background: rgba(13, 14, 20, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  padding: 0;
+  overflow: hidden;
+  backdrop-filter: blur(20px);
+  transition: all 0.3s ease;
+  position: relative;
+  cursor: pointer;
+  font-family: 'DM Mono', monospace;
+  animation: node-slide-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes node-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Top highlight line */
+.node-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--matter-color) 30%, transparent),
+    transparent
+  );
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.node-card:hover {
+  border-color: color-mix(in srgb, var(--matter-color) 20%, transparent);
+}
+
+.node-card:hover::before {
+  opacity: 1;
+}
+
+/* Active state */
+.node-card.is-active {
+  border-color: color-mix(in srgb, var(--matter-color) 35%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--matter-color) 10%, transparent),
+    0 8px 40px rgba(0, 0, 0, 0.5),
+    0 0 60px color-mix(in srgb, var(--matter-color) 5%, transparent);
+}
+
+.node-card.is-active::before {
+  opacity: 1;
+}
+
+/* Dimmed state (focus mode, not in path) */
+.node-card.is-dimmed {
+  opacity: 0.2;
+  filter: saturate(0);
+}
+
+/* ─── Card Sections ──────────────────────────────────────────── */
+
+/* Header */
+.node-header {
+  padding: 12px 14px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.node-index {
+  font-size: 10px;
+  color: var(--matter-color);
+  letter-spacing: 0.1em;
+  font-weight: 500;
+  font-family: 'DM Mono', monospace;
+  text-shadow: 0 0 8px color-mix(in srgb, var(--matter-color) 40%, transparent);
+}
+
+.node-branch-badge {
+  font-size: 9px;
+  color: var(--matter-color);
+  background: color-mix(in srgb, var(--matter-color) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--matter-color) 25%, transparent);
+  padding: 2px 7px;
+  border-radius: 20px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: 'DM Mono', monospace;
+}
+
+/* Tags row */
+.node-tags {
+  padding: 8px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-height: 10px;
+}
+
+.node-tags:empty {
+  display: none;
+}
+
+.tag-pill {
+  font-size: 10px;
+  color: var(--matter-color);
+  background: color-mix(in srgb, var(--matter-color) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--matter-color) 20%, transparent);
+  padding: 2px 8px;
+  border-radius: 20px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: 'DM Mono', monospace;
+}
+
+.tag-pill:hover {
+  background: color-mix(in srgb, var(--matter-color) 15%, transparent);
+  border-color: color-mix(in srgb, var(--matter-color) 40%, transparent);
+}
+
+/* Content area */
+.node-content {
+  padding: 4px 14px 12px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: rgba(232, 234, 240, 0.8);
+  letter-spacing: 0.01em;
+  font-family: 'DM Mono', monospace;
+}
+
+.node-content.is-editing {
+  padding: 0;
+}
+
+.node-content textarea {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.03);
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  color: #e8eaf0;
+  font-family: 'DM Mono', monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  padding: 12px 14px;
+  resize: none;
+  outline: none;
+  min-height: 80px;
+  letter-spacing: 0.01em;
+}
+
+.node-content textarea::placeholder {
+  color: #2a2d3a;
+}
+
+/* Tags input row (editing only) */
+.tags-input-row {
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.tags-input-row .tag-icon {
+  color: #4a4d5e;
+  font-size: 11px;
+  flex-shrink: 0;
+  font-family: 'DM Mono', monospace;
+}
+
+.tags-input-row input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #e8eaf0;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  padding: 8px 0;
+  outline: none;
+  letter-spacing: 0.02em;
+}
+
+.tags-input-row input::placeholder {
+  color: #2a2d3a;
+}
+
+/* Footer */
+.node-footer {
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.node-time {
+  font-size: 10px;
+  color: #4a4d5e;
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'DM Mono', monospace;
+}
+
+/* Glowing dot before timestamp */
+.node-time::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  background: var(--matter-color);
+  border-radius: 50%;
+  box-shadow: 0 0 5px var(--matter-color);
+  flex-shrink: 0;
+}
+
+.node-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.save-btn {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: #060608;
+  background: var(--matter-color);
+  border: none;
+  padding: 4px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.save-btn:hover {
+  box-shadow: 0 0 16px color-mix(in srgb, var(--matter-color) 40%, transparent);
+  transform: translateY(-1px);
+}
+
+.kbd-hint {
+  font-size: 9px;
+  color: #4a4d5e;
+  letter-spacing: 0.04em;
+  font-family: 'DM Mono', monospace;
+}
+
+.node-icon-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  color: #4a4d5e;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+  background: transparent;
+}
+
+.node-icon-btn:hover {
+  border-color: rgba(255, 59, 92, 0.3);
+  color: #ff3b5c;
+  background: rgba(255, 59, 92, 0.08);
+}
+
+/* ─── Add-child button (right side) ──────────────────────────── */
+
+.node-add-child {
+  margin-left: 12px;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed color-mix(in srgb, var(--matter-color) 30%, transparent);
+  color: color-mix(in srgb, var(--matter-color) 40%, transparent);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.25s;
+}
+
+.node-add-child:hover {
+  border-color: var(--matter-color);
+  color: var(--matter-color);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--matter-color) 40%, transparent);
+  background: color-mix(in srgb, var(--matter-color) 5%, transparent);
+}
+
+/* ─── Node prose overrides for the card context ──────────────── */
+
+.node-card .node-prose {
+  font-family: 'DM Mono', monospace;
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
+}
+
+.node-card .node-prose p {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: rgba(232, 234, 240, 0.8);
+}
+
+.node-card .node-prose h1 { font-size: 14px; }
+.node-card .node-prose h2 { font-size: 13px; }
+.node-card .node-prose h3 { font-size: 12.5px; }
+
+.node-card .node-prose code {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+}
+
+.node-card .node-prose pre code {
+  font-size: 11px;
+}
