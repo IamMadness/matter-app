@@ -119,7 +119,7 @@ export default function BranchLine({ fromRef, toRefs, containerRef, activeIds })
             key={`inactive-${i}`}
             d={p.d}
             fill="none"
-            stroke="rgba(255,255,255,0.12)"
+            stroke="var(--border-lit)"
             strokeWidth={1.5}
             strokeLinecap="round"
           />
@@ -133,7 +133,7 @@ export default function BranchLine({ fromRef, toRefs, containerRef, activeIds })
             key={`active-${i}`}
             d={p.d}
             fill="none"
-            stroke="var(--matter-color, #6366f1)"
+            stroke="var(--matter-color, var(--cc))"
             strokeWidth={2}
             strokeLinecap="round"
             filter={`url(#${filterId})`}

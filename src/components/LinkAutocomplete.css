@@ -12,15 +12,13 @@
   max-height: 220px;
   overflow-y: auto;
 
-  background: #0e0e10;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--s2);
+  border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.55),
-    0 0 0 1px rgba(255, 255, 255, 0.04);
+  box-shadow: var(--shadow-drop);
   backdrop-filter: blur(24px);
   padding: 4px;
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .link-autocomplete::-webkit-scrollbar {
@@ -30,7 +28,7 @@
   background: transparent;
 }
 .link-autocomplete::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--hover-lit);
   border-radius: 10px;
 }
 
@@ -48,7 +46,7 @@
 
 .link-ac-row:hover,
 .link-ac-row.is-active {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--hover);
 }
 
 /* ── Colored dot ─────────────────────────────────── */
@@ -63,7 +61,7 @@
 .link-ac-title {
   flex: 1;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--txt-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -73,7 +71,7 @@
 .link-ac-matter {
   flex-shrink: 0;
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--txt-3);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -81,19 +79,18 @@
 /* ── [[WikiLink]] chips in view mode ─────────────── */
 .wiki-link-chip {
   display: inline;
-  color: #67e8f9;
+  color: var(--link-chip);
   font-weight: 500;
   cursor: pointer;
-  text-decoration: none;
-  transition: color 0.12s, text-decoration-color 0.12s;
   text-decoration: underline;
   text-underline-offset: 2px;
-  text-decoration-color: rgba(103, 232, 249, 0.3);
+  text-decoration-color: color-mix(in srgb, var(--link-chip) 30%, transparent);
+  transition: color 0.12s, text-decoration-color 0.12s;
 }
 
 .wiki-link-chip:hover {
-  color: #a5f3fc;
-  text-decoration-color: rgba(165, 243, 252, 0.6);
+  color: var(--link-chip-hover);
+  text-decoration-color: color-mix(in srgb, var(--link-chip-hover) 60%, transparent);
 }
 
 /* ── Autocomplete wrapper (relative anchor) ──────── */

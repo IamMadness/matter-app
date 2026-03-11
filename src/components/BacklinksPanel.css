@@ -13,11 +13,11 @@
   display: flex;
   flex-direction: column;
 
-  background: rgba(10, 11, 16, 0.96);
-  border-left: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--s2);
+  border-left: 1px solid var(--border);
   backdrop-filter: blur(24px);
-  font-family: 'DM Mono', monospace;
-  color: rgba(255, 255, 255, 0.7);
+  font-family: var(--font-mono);
+  color: var(--txt-2);
 }
 
 /* ── Header ──────────────────────────────────────── */
@@ -26,7 +26,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 14px 16px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border);
 }
 
 .bp-header-left {
@@ -39,7 +39,7 @@
   font-size: 9px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--txt-3);
   font-weight: 500;
 }
 
@@ -51,9 +51,9 @@
   height: 18px;
   padding: 0 5px;
   border-radius: 9px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--hover-lit);
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--txt-3);
   font-weight: 500;
 }
 
@@ -66,14 +66,14 @@
   border-radius: 6px;
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--txt-3);
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
 }
 
 .bp-close:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.6);
+  background: var(--hover-lit);
+  color: var(--txt-2);
 }
 
 /* ── Body (scrollable) ───────────────────────────── */
@@ -90,7 +90,7 @@
   background: transparent;
 }
 .bp-body::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--hover-lit);
   border-radius: 10px;
 }
 
@@ -100,7 +100,7 @@
 }
 
 .bp-section + .bp-section {
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--press);
 }
 
 .bp-section-title {
@@ -108,7 +108,7 @@
   font-size: 9px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--txt-4);
   margin-bottom: 10px;
   font-weight: 500;
 }
@@ -126,18 +126,18 @@
   align-items: flex-start;
   gap: 10px;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   border: none;
   background: transparent;
   cursor: pointer;
   text-align: left;
   width: 100%;
   transition: background 0.12s;
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .bp-row:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--press);
 }
 
 .bp-dot {
@@ -157,14 +157,14 @@
 
 .bp-matter-name {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--txt-3);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .bp-excerpt {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--txt-2);
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -175,17 +175,17 @@
 /* ── Empty state ─────────────────────────────────── */
 .bp-empty {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.2);
+  color: var(--txt-4);
   line-height: 1.6;
   padding: 4px 0;
 }
 
 .bp-empty code {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--hover-lit);
   padding: 1px 5px;
   border-radius: 3px;
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--txt-3);
 }
 
 /* ── Graph hint (footer) ─────────────────────────── */
@@ -193,7 +193,7 @@
   padding: 10px 16px;
   text-align: center;
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.18);
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--txt-4);
+  border-top: 1px solid var(--press);
   letter-spacing: 0.02em;
 }

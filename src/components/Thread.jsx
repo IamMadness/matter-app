@@ -1,23 +1,28 @@
 import { useState, useRef, useMemo, useCallback, createRef, useEffect } from 'react'
 import { AnimatePresence } from 'framer-motion'
-import { Plus } from 'lucide-react'
 import { useActiveThread, useEdges } from '../hooks/useMatters'
 import { useKeyboard } from '../hooks/useKeyboard'
 import { createNode, deleteNode } from '../db/store'
 import Node from './Node'
-import BranchLine from './BranchLine'
+import BranchConnector from './BranchConnector'
 import BacklinksPanel from './BacklinksPanel'
+import './Thread.css'
 
 /**
  * Thread — Main horizontal canvas.
  *
- * Renders a matter's nodes as a recursive tree laid out left-to-right.
- * Handles focus mode (ancestor/descendant highlighting), branching,
- * keyboard navigation, and BranchLine SVG overlays.
+ * Renders a matter's nodes as a recursive tree laid out left-to-right,
+ * vertically centered in the viewport. Connector elements sit between
+ * sibling nodes with a gradient line, arrow-head, and branch mid-dot.
  *
- * @param {{ matterId: number, matterColor: string, onNavigate: Function }}
+ * @param {{
+ *   matterId: number,
+ *   matterColor: string,
+ *   focusEnabled: boolean,
+ *   onNavigate: Function,
+ * }}
  */
-export default function Thread({ matterId, matterColor, onNavigate }) {
+export default function Thread({ matterId, matterColor, focusEnabled = true, onNavigate }) {
   const { nodes, isLoading } = useActiveThread(matterId)
   const nodeIds = useMemo(() => nodes.map((n) => n.id).filter(Boolean), [nodes])
   const { edges } = useEdges(nodeIds)
@@ -27,8 +32,8 @@ export default function Thread({ matterId, matterColor, onNavigate }) {
 
   // ── Build adjacency structures ──────────────────────────────
   const { childrenMap, parentMap, rootIds } = useMemo(() => {
-    const cMap = {} // parentId → [childId, …]
-    const pMap = {} // childId → parentId
+    const cMap = {}
+    const pMap = {}
     const allChildIds = new Set()
 
     for (const edge of edges) {
@@ -38,7 +43,6 @@ export default function Thread({ matterId, matterColor, onNavigate }) {
       allChildIds.add(edge.targetId)
     }
 
-    // Root nodes have no incoming edge
     const roots = nodeIds.filter((id) => !allChildIds.has(id))
     return { childrenMap: cMap, parentMap: pMap, rootIds: roots }
   }, [edges, nodeIds])
@@ -50,21 +54,18 @@ export default function Thread({ matterId, matterColor, onNavigate }) {
     return m
   }, [nodes])
 
-  // ── Focus mode: compute ancestors & descendants of active ──
+  // ── Focus mode: ancestors & descendants of active node ──────
   const { ancestorIds, descendantIds } = useMemo(() => {
     const anc = new Set()
     const desc = new Set()
-
     if (activeNodeId == null) return { ancestorIds: anc, descendantIds: desc }
 
-    // Walk up to find ancestors
     let cur = activeNodeId
     while (parentMap[cur] != null) {
       cur = parentMap[cur]
       anc.add(cur)
     }
 
-    // Walk down to find descendants (BFS)
     const queue = [...(childrenMap[activeNodeId] || [])]
     while (queue.length) {
       const id = queue.shift()
@@ -76,19 +77,16 @@ export default function Thread({ matterId, matterColor, onNavigate }) {
     return { ancestorIds: anc, descendantIds: desc }
   }, [activeNodeId, parentMap, childrenMap])
 
-  // Active path = ancestors + active + descendants (for BranchLine glow)
   const activePathIds = useMemo(() => {
     if (activeNodeId == null) return new Set()
     return new Set([...ancestorIds, activeNodeId, ...descendantIds])
   }, [activeNodeId, ancestorIds, descendantIds])
 
-  // ── Refs map for BranchLine positioning ─────────────────────
+  // ── Refs map for node positioning ───────────────────────────
   const nodeRefsMap = useRef({})
 
   function getNodeRef(id) {
-    if (!nodeRefsMap.current[id]) {
-      nodeRefsMap.current[id] = createRef()
-    }
+    if (!nodeRefsMap.current[id]) nodeRefsMap.current[id] = createRef()
     return nodeRefsMap.current[id]
   }
 
@@ -98,48 +96,24 @@ export default function Thread({ matterId, matterColor, onNavigate }) {
   }, [])
 
   const handleClearFocus = useCallback((e) => {
-    // Only clear when clicking the canvas background itself
-    if (e.target === e.currentTarget) {
-      setActiveNodeId(null)
-    }
+    if (e.target === e.currentTarget) setActiveNodeId(null)
   }, [])
 
   const handleAddChild = useCallback(
     async (parentId, isBranch = false) => {
       const parent = nodeMap[parentId]
       if (!parent) return
-
-      // Determine order: max child order + 1
-      const siblings = (childrenMap[parentId] || [])
-        .map((id) => nodeMap[id])
-        .filter(Boolean)
+      const siblings = (childrenMap[parentId] || []).map((id) => nodeMap[id]).filter(Boolean)
       const maxOrder = siblings.reduce((m, n) => Math.max(m, n.order ?? 0), parent.order ?? 0)
-
-      await createNode({
-        matterId,
-        content: '',
-        tags: [],
-        order: maxOrder + 1,
-        isBranch,
-        parentId,
-      })
+      await createNode({ matterId, content: '', tags: [], order: maxOrder + 1, isBranch, parentId })
     },
     [matterId, nodeMap, childrenMap],
   )
 
   const handleAddAtEnd = useCallback(async () => {
     const maxOrder = nodes.reduce((m, n) => Math.max(m, n.order ?? 0), 0)
-    // If there are root nodes, attach to the last root; otherwise create a fresh root
     const lastRoot = rootIds.length > 0 ? rootIds[rootIds.length - 1] : null
-
-    await createNode({
-      matterId,
-      content: '',
-      tags: [],
-      order: maxOrder + 1,
-      isBranch: false,
-      parentId: lastRoot,
-    })
+    await createNode({ matterId, content: '', tags: [], order: maxOrder + 1, isBranch: false, parentId: lastRoot })
   }, [matterId, nodes, rootIds])
 
   const handleDelete = useCallback(
@@ -150,12 +124,11 @@ export default function Thread({ matterId, matterColor, onNavigate }) {
     [activeNodeId],
   )
 
-  // ── Keyboard: Left/Right to navigate siblings ──────────────
+  // ── Keyboard navigation ────────────────────────────────────
   const getSiblings = useCallback(
     (nodeId) => {
       const pid = parentMap[nodeId]
-      if (pid != null) return childrenMap[pid] || []
-      return rootIds
+      return pid != null ? childrenMap[pid] || [] : rootIds
     },
     [parentMap, childrenMap, rootIds],
   )
@@ -163,23 +136,16 @@ export default function Thread({ matterId, matterColor, onNavigate }) {
   useKeyboard({
     ArrowRight: () => {
       if (activeNodeId == null) return
+      const children = childrenMap[activeNodeId]
+      if (children?.length) { setActiveNodeId(children[0]); return }
       const sibs = getSiblings(activeNodeId)
       const idx = sibs.indexOf(activeNodeId)
-      // Try moving to first child first, then next sibling
-      const children = childrenMap[activeNodeId]
-      if (children?.length) {
-        setActiveNodeId(children[0])
-      } else if (idx < sibs.length - 1) {
-        setActiveNodeId(sibs[idx + 1])
-      }
+      if (idx < sibs.length - 1) setActiveNodeId(sibs[idx + 1])
     },
     ArrowLeft: () => {
       if (activeNodeId == null) return
-      // Move to parent
       const pid = parentMap[activeNodeId]
-      if (pid != null) {
-        setActiveNodeId(pid)
-      }
+      if (pid != null) setActiveNodeId(pid)
     },
     ArrowDown: () => {
       if (activeNodeId == null) return
@@ -203,8 +169,29 @@ export default function Thread({ matterId, matterColor, onNavigate }) {
     ref?.current?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
   }, [activeNodeId])
 
+  // ── Connector element between two horizontally-adjacent nodes
+  function Connector({ sourceNodeId }) {
+    return (
+      <div className="conn">
+        <div className="conn-line" />
+        <div
+          className="conn-mid"
+          onClick={(e) => {
+            e.stopPropagation()
+            handleAddChild(sourceNodeId, true)
+          }}
+          data-tip="branch"
+        />
+        <span className="conn-add-hint">branch here</span>
+      </div>
+    )
+  }
+
+  // ── Running index counter for stagger ───────────────────────
+  let nodeIndex = 0
+
   // ── Recursive subtree renderer ──────────────────────────────
-  function renderSubtree(nodeId) {
+  function renderSubtree(nodeId, isFirst = false) {
     const node = nodeMap[nodeId]
     if (!node) return null
 
@@ -215,14 +202,18 @@ export default function Thread({ matterId, matterColor, onNavigate }) {
     const isActive = nodeId === activeNodeId
     const isAncestor = ancestorIds.has(nodeId)
     const isDescendant = descendantIds.has(nodeId)
-    const hasFocus = activeNodeId != null
+    const hasFocus = focusEnabled && activeNodeId != null
+
+    // Capture and increment the running index for stagger delay
+    const currentIndex = nodeIndex++
 
     return (
-      <div key={nodeId} className="flex items-center gap-8">
-        {/* Parent node */}
+      <div key={nodeId} className="flex items-center" style={{ gap: 0 }}>
+        {/* Node card */}
         <div ref={nodeRef} data-node-id={nodeId} className="relative shrink-0">
           <Node
             node={node}
+            index={currentIndex}
             isActive={isActive}
             isAncestor={hasFocus && isAncestor}
             isDescendant={hasFocus && isDescendant}
@@ -230,28 +221,32 @@ export default function Thread({ matterId, matterColor, onNavigate }) {
             onSelect={handleSelect}
             onAddChild={handleAddChild}
             onDelete={handleDelete}
-            onNavigate={(title) => {
-              // Wiki-link chip clicked — delegate to parent
-              // For now we don't resolve title→node here;
-              // onNavigate in App will handle cross-matter nav
-              onNavigate?.(null, null, title)
-            }}
+            onNavigate={(title) => onNavigate?.(null, null, title)}
           />
         </div>
 
-        {/* Children */}
+        {/* Children with connectors */}
         {children.length > 0 && (
-          <div className="relative flex flex-col gap-6">
-            {/* BranchLine SVG from this parent to its children */}
-            <BranchLine
-              fromRef={nodeRef}
-              toRefs={childRefs}
-              containerRef={containerRef}
-              activeIds={activePathIds}
-            />
-
-            {children.map((childId) => renderSubtree(childId))}
-          </div>
+          <>
+            {children.length === 1 ? (
+              <>
+                <Connector sourceNodeId={nodeId} />
+                {renderSubtree(children[0])}
+              </>
+            ) : (
+              <>
+                <BranchConnector
+                  parentRef={nodeRef}
+                  childRefs={childRefs}
+                  containerRef={containerRef}
+                  matterColor={matterColor}
+                />
+                <div className="flex flex-col gap-6">
+                  {children.map((childId) => renderSubtree(childId))}
+                </div>
+              </>
+            )}
+          </>
         )}
       </div>
     )
@@ -260,57 +255,74 @@ export default function Thread({ matterId, matterColor, onNavigate }) {
   // ── Render ──────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center text-white/20 text-sm">
+      <div className="flex-1 flex items-center justify-center text-sm" style={{ color: 'var(--txt-4)' }}>
         Loading…
       </div>
     )
   }
 
+  // ── Flatten rootIds into a linked sequence for connectors ──
+  function renderRootSequence() {
+    nodeIndex = 0 // reset stagger counter per render
+    const elements = []
+    rootIds.forEach((rootId, i) => {
+      if (i > 0) {
+        elements.push(
+          <Connector key={`conn-root-${i}`} sourceNodeId={rootIds[i - 1]} />,
+        )
+      }
+      elements.push(
+        <div key={rootId}>{renderSubtree(rootId, i === 0)}</div>,
+      )
+    })
+    return elements
+  }
+
   return (
     <div
       ref={containerRef}
-      className="relative flex-1 overflow-x-auto overflow-y-hidden"
-      style={{ '--matter-color': matterColor || '#6366f1' }}
+      className="thread-canvas"
+      style={{ '--matter-color': matterColor || 'var(--cc)' }}
       onClick={handleClearFocus}
     >
-      {/* Inner scroll track */}
-      <div className="flex items-center gap-8 px-8 py-6 min-h-full min-w-max">
-        <AnimatePresence mode="popLayout">
-          {rootIds.map((rootId) => renderSubtree(rootId))}
-        </AnimatePresence>
+      {/* ── Nodes exist → render track ─────────────────────── */}
+      {nodes.length > 0 && (
+        <div className="thread-track">
+          <AnimatePresence mode="popLayout">
+            {renderRootSequence()}
+          </AnimatePresence>
 
-        {/* "Add node" button at thread end */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            handleAddAtEnd()
-          }}
-          className="shrink-0 flex items-center gap-2 px-4 py-3 rounded-xl
-                     border border-dashed border-white/15 text-white/25
-                     hover:border-white/30 hover:text-white/50 hover:bg-white/3
-                     transition-colors duration-150 cursor-pointer"
-        >
-          <Plus size={16} />
-          <span className="text-sm">Add note</span>
-        </button>
-      </div>
+          <Connector sourceNodeId={rootIds[rootIds.length - 1]} />
 
-      {/* Empty state */}
-      {nodes.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="text-center space-y-2">
-            <p className="text-white/20 text-sm">No notes yet</p>
-            <p className="text-white/10 text-xs">
-              Click "Add note" to start this thread
-            </p>
-          </div>
+          <button
+            className="thread-add-end"
+            onClick={(e) => { e.stopPropagation(); handleAddAtEnd() }}
+          >
+            <div className="thread-add-circle">+</div>
+            <span className="thread-add-label">new node</span>
+          </button>
         </div>
       )}
 
-      {/* Backlinks panel */}
+      {/* ── Empty state ────────────────────────────────────── */}
+      {nodes.length === 0 && (
+        <div className="thread-empty">
+          <div className="thread-empty-ring" />
+          <h2>Start your first thread</h2>
+          <p>Click below to add your first node</p>
+          <button
+            className="thread-empty-cta"
+            onClick={(e) => { e.stopPropagation(); handleAddAtEnd() }}
+          >
+            Add first node
+          </button>
+        </div>
+      )}
+
+      {/* ── Backlinks panel ────────────────────────────────── */}
       <BacklinksPanel
         nodeId={activeNodeId}
-        onNavigate={(matterId, nodeId) => onNavigate?.(matterId, nodeId)}
+        onNavigate={(mid, nid) => onNavigate?.(mid, nid)}
         onClose={() => setActiveNodeId(null)}
       />
     </div>

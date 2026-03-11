@@ -1,0 +1,148 @@
+/* ═══════════════════════════════════════════════════════════════
+   SIDEBAR — "The Spine"
+   Fixed 68px rail. All colours via design tokens.
+   ═══════════════════════════════════════════════════════════════ */
+
+.sidebar-rail {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  width: 68px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 18px 0 20px;
+  gap: 6px;
+  background: rgba(8, 8, 9, 0.92);
+  border-right: 1px solid var(--border);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  user-select: none;
+}
+
+/* ── Logo ──────────────────────────────────────────────────── */
+
+.sidebar-logo {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: var(--cc);
+  text-shadow: 0 0 16px rgba(232, 255, 71, 0.3);
+  margin-bottom: 12px;
+  line-height: 1;
+}
+
+/* ── Matter button ─────────────────────────────────────────── */
+
+.matter-btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--s1);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.2s;
+  outline: none;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.matter-btn:hover {
+  background: var(--s2);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--cc) 25%, transparent);
+}
+
+/* ── Active state ──────────────────────────────────────────── */
+
+.matter-btn.is-active {
+  border-color: var(--cc);
+  background: color-mix(in srgb, var(--cc) 10%, transparent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--cc) 30%, transparent);
+}
+
+.matter-btn.is-active::after {
+  content: '';
+  position: absolute;
+  left: -9px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 22px;
+  background: var(--cc);
+  border-radius: 0 4px 4px 0;
+  box-shadow: 0 0 10px var(--cc);
+}
+
+/* ── Tooltip ───────────────────────────────────────────────── */
+
+.matter-btn[data-tip]::before {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(20, 20, 24, 0.97);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--txt-2);
+  padding: 4px 10px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+  z-index: 30;
+}
+
+.matter-btn:hover[data-tip]::before {
+  opacity: 1;
+}
+
+/* ── Divider ───────────────────────────────────────────────── */
+
+.sidebar-divider {
+  width: 24px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  margin: 4px 0;
+}
+
+/* ── Add button ────────────────────────────────────────────── */
+
+.sidebar-add {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--txt-2);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  margin-top: auto;
+  outline: none;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.sidebar-add:hover {
+  border-color: var(--cc);
+  color: var(--cc);
+  background: color-mix(in srgb, var(--cc) 6%, transparent);
+}

@@ -1,0 +1,241 @@
+/* ═══════════════════════════════════════════════════════════════
+   THREAD — Canvas layout, connectors, empty state, add-endpoint
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Canvas container ──────────────────────────────────────── */
+
+.thread-canvas {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0 80px;
+  gap: 0;
+  position: relative;
+
+  /* #10 — thin accent scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--cc) 20%, transparent) transparent;
+}
+
+.thread-canvas::-webkit-scrollbar {
+  height: 3px;
+}
+.thread-canvas::-webkit-scrollbar-track {
+  background: transparent;
+}
+.thread-canvas::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--cc) 20%, transparent);
+  border-radius: 2px;
+}
+
+/* ── Inner track ───────────────────────────────────────────── */
+
+.thread-track {
+  display: flex;
+  align-items: center;
+  min-width: max-content;
+  gap: 0;
+}
+
+/* ── Connector line between sibling nodes ──────────────────── */
+
+.conn {
+  width: 56px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.conn-line {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--cc) 45%, transparent),
+    color-mix(in srgb, var(--cc) 12%, transparent)
+  );
+  position: relative;
+}
+
+/* Arrow head */
+.conn-line::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-right: 1px solid color-mix(in srgb, var(--cc) 35%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--cc) 35%, transparent);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+/* #2 — Mid-point glow dot with pulse */
+.conn-mid {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cc);
+  box-shadow: 0 0 8px var(--cc), 0 0 18px color-mix(in srgb, var(--cc) 30%, transparent);
+  cursor: pointer;
+  z-index: 2;
+  transition: transform 0.2s;
+  animation: conn-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes conn-pulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(1);    opacity: 1;   }
+  50%      { transform: translate(-50%, -50%) scale(1.15); opacity: 0.6; }
+}
+
+/* Stop pulse on hover */
+.conn-mid:hover {
+  animation: none;
+  transform: translate(-50%, -50%) scale(1.6);
+}
+
+/* "branch here" hint */
+.conn-add-hint {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 8px);
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--txt-3);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+
+.conn:hover .conn-add-hint {
+  opacity: 1;
+}
+
+/* ── Empty state ───────────────────────────────────────────── */
+
+.thread-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  text-align: center;
+}
+
+/* #7 — Empty state ring with box-shadow pulse */
+.thread-empty-ring {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--cc) 20%, transparent);
+  animation: empty-ring-pulse 3s ease-in-out infinite;
+}
+
+@keyframes empty-ring-pulse {
+  0%, 100% {
+    box-shadow: 0 0 40px color-mix(in srgb, var(--cc) 6%, transparent);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 60px color-mix(in srgb, var(--cc) 14%, transparent);
+    transform: scale(1.04);
+  }
+}
+
+.thread-empty h2 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--txt);
+  margin: 0;
+}
+
+.thread-empty p {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--txt-3);
+  margin: 0;
+}
+
+.thread-empty-cta {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+  color: #080809;
+  background: var(--cc);
+  border: none;
+  border-radius: 10px;
+  padding: 10px 24px;
+  cursor: pointer;
+  box-shadow: 0 0 24px color-mix(in srgb, var(--cc) 30%, transparent);
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.thread-empty-cta:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* ── Add-node endpoint ─────────────────────────────────────── */
+
+.thread-add-end {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: opacity 0.18s;
+  cursor: pointer;
+  background: none;
+  border: none;
+  outline: none;
+  padding: 0;
+}
+
+.thread-add-end:hover {
+  opacity: 1;
+}
+
+.thread-add-circle {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px dashed color-mix(in srgb, var(--cc) 28%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  line-height: 1;
+  color: color-mix(in srgb, var(--cc) 40%, transparent);
+  transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+
+.thread-add-end:hover .thread-add-circle {
+  border-color: var(--cc);
+  color: var(--cc);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--cc) 18%, transparent);
+}
+
+.thread-add-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--txt-3);
+  writing-mode: vertical-rl;
+}

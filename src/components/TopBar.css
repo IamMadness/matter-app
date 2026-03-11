@@ -1,0 +1,117 @@
+/* ═══════════════════════════════════════════════════════════════
+   TOPBAR — Thread top navigation
+   ═══════════════════════════════════════════════════════════════ */
+
+.topbar {
+  height: 54px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 14px;
+  background: rgba(8, 8, 9, 0.75);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  user-select: none;
+}
+
+/* ── Matter title ──────────────────────────────────────────── */
+
+.topbar-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--cc);
+  text-shadow: 0 0 14px color-mix(in srgb, var(--cc) 30%, transparent);
+  white-space: nowrap;
+  line-height: 1;
+  transition: color 0.4s ease, text-shadow 0.4s ease;
+}
+
+/* ── Separator ─────────────────────────────────────────────── */
+
+.topbar-sep {
+  color: var(--txt-3);
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* ── Node count badge ──────────────────────────────────────── */
+
+.topbar-badge {
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--txt-2);
+  padding: 2px 10px;
+  white-space: nowrap;
+  line-height: 1.6;
+}
+
+/* ── Focus toggle ──────────────────────────────────────────── */
+
+.topbar-focus {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+  outline: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  line-height: 1;
+  white-space: nowrap;
+
+  background: var(--s1);
+  border: 1px solid var(--border);
+  color: var(--txt-2);
+}
+
+.topbar-focus:hover {
+  border-color: var(--border-lit);
+}
+
+.topbar-focus.is-on {
+  border-color: var(--border-lit);
+  color: var(--cc);
+  background: color-mix(in srgb, var(--cc) 6%, transparent);
+}
+
+/* ── Search trigger ────────────────────────────────────────── */
+
+.topbar-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--txt-2);
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 12px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.topbar-search:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.topbar-search .kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--txt-3);
+  background: var(--hover);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  line-height: 1.4;
+}

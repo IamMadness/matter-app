@@ -1,0 +1,150 @@
+/* ═══════════════════════════════════════════════════════════════
+   Scrubber — bottom timeline bar
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Container ─────────────────────────────────────────────── */
+
+.sb-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  height: 46px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 24px 0 92px;               /* 68 sidebar + 24 gap */
+  border-top: 1px solid var(--border);
+  background: rgba(8,8,9,0.88);
+  backdrop-filter: blur(16px);
+}
+
+/* ── TIMELINE label ────────────────────────────────────────── */
+
+.sb-label {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--txt-3);
+  user-select: none;
+}
+
+/* ── Track ─────────────────────────────────────────────────── */
+
+.sb-track {
+  flex: 1;
+  height: 2px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 1px;
+  position: relative;
+}
+
+/* ── Fill bar (gradient) ───────────────────────────────────── */
+
+.sb-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border-radius: 1px;
+  background: linear-gradient(90deg, var(--cc), transparent);
+  pointer-events: none;
+  transition: width 0.3s ease;
+}
+
+/* ── Dot (regular circle) ──────────────────────────────────── */
+
+.sb-dot {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cc);
+  box-shadow: 0 0 6px var(--cc);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.15s;
+  z-index: 2;
+}
+
+.sb-dot:hover { transform: translate(-50%, -50%) scale(1.7); }
+
+/* ── Dot (branch diamond) ──────────────────────────────────── */
+
+.sb-dot.is-branch {
+  width: 7px;
+  height: 7px;
+  border-radius: 1px;
+  background: #B06EF7;
+  box-shadow: 0 0 6px #B06EF7;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.sb-dot.is-branch:hover {
+  transform: translate(-50%, -50%) rotate(45deg) scale(1.7);
+}
+
+/* ── Tooltip ───────────────────────────────────────────────── */
+
+.sb-tooltip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.92);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 50;
+  font-family: var(--font-mono);
+}
+
+.sb-tooltip-text {
+  font-size: 11px;
+  color: var(--txt);
+  font-weight: 500;
+  margin: 0;
+}
+
+.sb-tooltip-time {
+  font-size: 9px;
+  color: var(--txt-3);
+  margin: 2px 0 0;
+}
+
+/* ── Playhead ──────────────────────────────────────────────── */
+
+.sb-playhead {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 64px;
+  height: 26px;
+  border: 1px solid color-mix(in srgb, var(--cc) 25%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--cc) 4%, transparent);
+  cursor: grab;
+  z-index: 3;
+  touch-action: none;
+}
+
+.sb-playhead:active { cursor: grabbing; }
+
+/* ── Date label ────────────────────────────────────────────── */
+
+.sb-date {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--txt-3);
+  user-select: none;
+}

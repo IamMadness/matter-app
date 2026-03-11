@@ -1,22 +1,5 @@
-import { useRef, useState, useMemo, useCallback } from 'react'
-import { motion } from 'framer-motion'
-
-const BAR_H = 48
-const DOT_SIZE = 6
-const DIAMOND_SIZE = 9
-const PADDING_X = 24
-
-/**
- * Format a timestamp as "Mar 8 · 18:20".
- */
-function fmtTime(ts) {
-  const d = ts instanceof Date ? ts : new Date(ts)
-  const month = d.toLocaleString('en-US', { month: 'short' })
-  const day = d.getDate()
-  const h = String(d.getHours()).padStart(2, '0')
-  const m = String(d.getMinutes()).padStart(2, '0')
-  return `${month} ${day} · ${h}:${m}`
-}
+import { useRef, useState, useMemo, useCallback, useEffect } from 'react'
+import './Scrubber.css'
 
 /**
  * Truncate text to maxLen chars, appending "…" if needed.
@@ -28,23 +11,43 @@ function truncate(text, maxLen = 40) {
 }
 
 /**
- * Scrubber — "The Chronology Bar"
- *
- * Fixed bottom bar with a proportional timeline of node dots.
- * Clicking a dot jumps the Thread to that node.
- *
- * @param {{
- *   nodes: Array,
- *   onJumpTo: (nodeId: number) => void,
- *   viewportRatio?: { start: number, end: number },
- * }}
+ * Format timestamp as "Mar 11 · 14:20".
  */
-export default function Scrubber({ nodes, onJumpTo, viewportRatio }) {
+function fmtTime(ts) {
+  const d = ts instanceof Date ? ts : new Date(ts)
+  const month = d.toLocaleString('en-US', { month: 'short' })
+  const day = d.getDate()
+  const h = String(d.getHours()).padStart(2, '0')
+  const m = String(d.getMinutes()).padStart(2, '0')
+  return `${month} ${day} · ${h}:${m}`
+}
+
+/**
+ * Format today's date as "Mar 11, 2026".
+ */
+function fmtDate() {
+  const d = new Date()
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+/**
+ * Scrubber — bottom timeline bar with proportional node dots,
+ * a gradient fill, a draggable playhead, and a date label.
+ *
+ * Props:
+ *   nodes      — array of node objects (need id, createdAt, content, isBranch)
+ *   onJumpTo   — (nodeId) => void — scrolls Thread to that node
+ */
+export default function Scrubber({ nodes, onJumpTo }) {
   const trackRef = useRef(null)
   const [hoveredId, setHoveredId] = useState(null)
-  const [tooltipPos, setTooltipPos] = useState({ x: 0 })
 
-  // ── Compute proportional x-positions based on timestamps ───
+  // ── Playhead drag state ──────────────────────────────────────
+  const [phLeft, setPhLeft] = useState(0)
+  const dragging = useRef(false)
+  const dragOffset = useRef(0)
+
+  // ── Compute normalised positions ─────────────────────────────
   const positioned = useMemo(() => {
     if (!nodes || nodes.length === 0) return []
 
@@ -54,123 +57,104 @@ export default function Scrubber({ nodes, onJumpTo, viewportRatio }) {
 
     const minT = new Date(sorted[0].createdAt).getTime()
     const maxT = new Date(sorted[sorted.length - 1].createdAt).getTime()
-    const range = maxT - minT || 1 // avoid div-by-zero
+    const range = maxT - minT || 1
 
     return sorted.map((node) => ({
       ...node,
-      // 0 → 1 normalised position
       ratio: (new Date(node.createdAt).getTime() - minT) / range,
     }))
   }, [nodes])
 
-  // ── Playhead drag constraints ──────────────────────────────
-  const playheadConstraints = useRef(null)
+  // Fill bar width = rightmost node ratio
+  const fillPct = positioned.length > 0
+    ? positioned[positioned.length - 1].ratio * 100
+    : 0
 
-  // ── Handle dot hover for tooltip positioning ───────────────
-  const handleDotHover = useCallback((e, nodeId) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    setTooltipPos({ x: rect.left + rect.width / 2 })
-    setHoveredId(nodeId)
+  // ── Playhead drag handlers ───────────────────────────────────
+  const handlePhDown = useCallback((e) => {
+    e.preventDefault()
+    dragging.current = true
+    const track = trackRef.current
+    if (!track) return
+    const rect = track.getBoundingClientRect()
+    dragOffset.current = e.clientX - rect.left - phLeft
+  }, [phLeft])
+
+  useEffect(() => {
+    const handleMove = (e) => {
+      if (!dragging.current) return
+      const track = trackRef.current
+      if (!track) return
+      const rect = track.getBoundingClientRect()
+      const maxLeft = rect.width - 64 // playhead width
+      let next = e.clientX - rect.left - dragOffset.current
+      next = Math.max(0, Math.min(next, maxLeft))
+      setPhLeft(next)
+    }
+
+    const handleUp = () => { dragging.current = false }
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+    }
   }, [])
 
+  // ── Render ───────────────────────────────────────────────────
   const hoveredNode = hoveredId != null
     ? positioned.find((n) => n.id === hoveredId)
     : null
 
-  // Viewport indicator (playhead) position
-  const vpStart = viewportRatio?.start ?? 0
-  const vpEnd = viewportRatio?.end ?? 1
-
   return (
-    <div
-      className="fixed bottom-0 left-0 right-0 z-40 flex items-center
-                 bg-black/80 backdrop-blur-md border-t border-white/10"
-      style={{ height: BAR_H }}
-    >
-      {/* ── Track ──────────────────────────────────────────── */}
-      <div
-        ref={(el) => {
-          trackRef.current = el
-          playheadConstraints.current = el
-        }}
-        className="relative flex-1 h-full mx-4"
-        style={{ paddingLeft: PADDING_X, paddingRight: PADDING_X }}
-      >
-        {/* Centre line */}
-        <div className="absolute top-1/2 -translate-y-1/2 left-6 right-6 h-px bg-white/8" />
+    <div className="sb-bar">
+      {/* ── TIMELINE label ──────────────────────────────── */}
+      <span className="sb-label">Timeline</span>
 
-        {/* ── Dots ─────────────────────────────────────────── */}
+      {/* ── Track ────────────────────────────────────────── */}
+      <div className="sb-track" ref={trackRef}>
+        {/* gradient fill */}
+        <div className="sb-fill" style={{ width: `${fillPct}%` }} />
+
+        {/* dots */}
         {positioned.map((node) => {
           const isBranch = node.isBranch === true
           const isHov = hoveredId === node.id
-          const leftPct = `calc(${PADDING_X}px + ${node.ratio * 100}% * (1 - ${(PADDING_X * 2)}px / 100%))`
 
           return (
             <button
               key={node.id}
+              className={`sb-dot${isBranch ? ' is-branch' : ''}`}
+              style={{ left: `${node.ratio * 100}%` }}
               onClick={() => onJumpTo?.(node.id)}
-              onMouseEnter={(e) => handleDotHover(e, node.id)}
+              onMouseEnter={() => setHoveredId(node.id)}
               onMouseLeave={() => setHoveredId(null)}
-              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2
-                         cursor-pointer transition-transform duration-150
-                         hover:scale-150 focus:outline-none"
-              style={{ left: `${node.ratio * 100}%`, marginLeft: PADDING_X }}
               aria-label={truncate(node.content)}
             >
-              <div
-                className={`
-                  transition-all duration-150
-                  ${isBranch
-                    ? 'rotate-45 rounded-sm'
-                    : 'rounded-full'
-                  }
-                `}
-                style={{
-                  width: isBranch ? DIAMOND_SIZE : DOT_SIZE,
-                  height: isBranch ? DIAMOND_SIZE : DOT_SIZE,
-                  backgroundColor: 'var(--matter-color, #6366f1)',
-                  boxShadow: isHov
-                    ? '0 0 8px 2px var(--matter-color, #6366f1)'
-                    : 'none',
-                }}
-              />
+              {/* tooltip */}
+              {isHov && (
+                <div className="sb-tooltip">
+                  <p className="sb-tooltip-text">{truncate(node.content)}</p>
+                  <p className="sb-tooltip-time">
+                    {node.createdAt ? fmtTime(node.createdAt) : '—'}
+                  </p>
+                </div>
+              )}
             </button>
           )
         })}
 
-        {/* ── Playhead viewport indicator ──────────────────── */}
-        <motion.div
-          className="absolute top-1 bottom-1 rounded-md border border-white/15
-                     bg-white/5 cursor-grab active:cursor-grabbing"
-          style={{
-            left: `${vpStart * 100}%`,
-            width: `${(vpEnd - vpStart) * 100}%`,
-            marginLeft: PADDING_X,
-          }}
-          drag="x"
-          dragConstraints={playheadConstraints}
-          dragElastic={0}
-          dragMomentum={false}
+        {/* playhead */}
+        <div
+          className="sb-playhead"
+          style={{ left: phLeft }}
+          onMouseDown={handlePhDown}
         />
-
-        {/* ── Tooltip ──────────────────────────────────────── */}
-        {hoveredNode && (
-          <div
-            className="absolute bottom-full mb-2 -translate-x-1/2
-                       px-3 py-1.5 rounded-lg bg-black/90 border border-white/10
-                       text-xs text-white/70 whitespace-nowrap pointer-events-none
-                       shadow-lg"
-            style={{ left: `${hoveredNode.ratio * 100}%`, marginLeft: PADDING_X }}
-          >
-            <p className="text-white/90 font-medium mb-0.5">
-              {truncate(hoveredNode.content)}
-            </p>
-            <p className="text-white/40 text-[10px] font-mono">
-              {hoveredNode.createdAt ? fmtTime(hoveredNode.createdAt) : '—'}
-            </p>
-          </div>
-        )}
       </div>
+
+      {/* ── Date label ───────────────────────────────────── */}
+      <span className="sb-date">{fmtDate()}</span>
     </div>
   )
 }
